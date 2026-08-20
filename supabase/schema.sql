@@ -48,6 +48,7 @@ CREATE TABLE public.log_entries (
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   amount DECIMAL(12, 2) NOT NULL,
   description TEXT,
+  source_date TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

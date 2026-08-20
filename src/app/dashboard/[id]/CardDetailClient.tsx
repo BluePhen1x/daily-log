@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { LogCardWithEntries, LogEntry } from "@/lib/types";
 import Link from "next/link";
-import PhotoScanner from "@/components/PhotoScanner";
+import ExcelImport from "@/components/ExcelImport";
 
 interface CardDetailClientProps {
   card: LogCardWithEntries;
@@ -130,7 +130,7 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
     }
   };
 
-  const handleEntriesScanned = async (entries: { amount: number; description: string }[]) => {
+  const handleEntriesScanned = async (entries: { amount: number; description: string; source_date?: string }[]) => {
     const { data: existingProfile } = await supabase
       .from("profiles")
       .select("id")
@@ -150,6 +150,7 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
       user_id: card.user_id,
       amount: e.amount,
       description: e.description || null,
+      source_date: e.source_date || null,
     }));
 
     const { data, error } = await supabase
@@ -289,7 +290,7 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
             {hasActiveFilters ? `${filteredEntries.length} results` : "History"}
           </h2>
           <div className="flex items-center gap-1">
-            <PhotoScanner symbol={symbol} onEntriesScanned={handleEntriesScanned} />
+            <ExcelImport symbol={symbol} onEntriesImported={handleEntriesScanned} />
             <button
               onClick={() => setSearchOpen(!searchOpen)}
               className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors ${
@@ -391,7 +392,14 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
                   {entry.description && (
                     <p className="text-sm text-gray-500 mt-0.5 truncate">{entry.description}</p>
                   )}
-                  <p className="text-xs text-gray-400 mt-0.5">{formatDate(entry.created_at)}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {entry.source_date && (
+                      <span className="text-xs text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded">
+                        {entry.source_date}
+                      </span>
+                    )}
+                    <p className="text-xs text-gray-400">{formatDate(entry.created_at)}</p>
+                  </div>
                 </div>
                 <button
                   onClick={() => handleDeleteEntry(entry.id)}

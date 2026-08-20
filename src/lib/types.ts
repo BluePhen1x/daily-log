@@ -20,6 +20,7 @@ export interface LogEntry {
   user_id: string;
   amount: number;
   description: string | null;
+  source_date: string | null;
   created_at: string;
 }
 
