@@ -93,12 +93,17 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
     return card.log_entries.filter((entry) => {
       const rawDate = entry.source_date || entry.created_at;
       let entryDate = rawDate.slice(0, 10);
-      if (entryDate.includes("/")) {
+      if (!entryDate.includes("-") && entryDate.includes("/")) {
         const [dd, mm, yyyy] = entryDate.split("/");
         entryDate = `${yyyy}-${mm}-${dd}`;
       }
-      if (dateFrom && entryDate < dateFrom) return false;
-      if (dateTo && entryDate > dateTo) return false;
+      const toYYYYMMDD = (ddmmyyyy: string) => {
+        const parts = ddmmyyyy.split("/");
+        if (parts.length !== 3) return ddmmyyyy;
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      };
+      if (dateFrom && entryDate < toYYYYMMDD(dateFrom)) return false;
+      if (dateTo && entryDate > toYYYYMMDD(dateTo)) return false;
       if (filterDescs.length > 0) {
         const entryDescs = (entry.descriptions || []).map((d) => d.toLowerCase());
         if (!filterDescs.some((f) => entryDescs.includes(f.toLowerCase()))) return false;
@@ -471,11 +476,11 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">From</label>
-                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                <input type="text" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="DD/MM/YYYY" maxLength={10} className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">To</label>
-                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                <input type="text" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="DD/MM/YYYY" maxLength={10} className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
               </div>
             </div>
             {hasActiveFilters && (
