@@ -480,30 +480,24 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">From</label>
                 <div className="relative">
                   <input type="text" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="DD/MM/YYYY" maxLength={10} className="w-full px-4 py-2.5 pr-10 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
-                  <input ref={dateFromRef} type="date" className="hidden" onChange={(e) => {
+                  <input ref={dateFromRef} type="date" className="absolute right-0 top-0 w-9 h-full opacity-0 cursor-pointer" onChange={(e) => {
                     if (e.target.value) {
                       const [y, m, d] = e.target.value.split("-");
                       setDateFrom(`${d}/${m}/${y}`);
                     }
                   }} />
-                  <button type="button" onClick={() => dateFromRef.current?.showPicker()} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-blue-500 transition-colors">
-                    <Calendar className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">To</label>
                 <div className="relative">
                   <input type="text" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="DD/MM/YYYY" maxLength={10} className="w-full px-4 py-2.5 pr-10 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
-                  <input ref={dateToRef} type="date" className="hidden" onChange={(e) => {
+                  <input ref={dateToRef} type="date" className="absolute right-0 top-0 w-9 h-full opacity-0 cursor-pointer" onChange={(e) => {
                     if (e.target.value) {
                       const [y, m, d] = e.target.value.split("-");
                       setDateTo(`${d}/${m}/${y}`);
                     }
                   }} />
-                  <button type="button" onClick={() => dateToRef.current?.showPicker()} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-blue-500 transition-colors">
-                    <Calendar className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
             </div>
