@@ -90,18 +90,20 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
 
   const filteredEntries = useMemo(() => {
     return card.log_entries.filter((entry) => {
+      const rawDate = entry.source_date || entry.created_at;
+      const entryDate = rawDate.slice(0, 10);
       if (dateFrom) {
-        const from = new Date(dateFrom);
-        if (new Date(entry.created_at) < from) return false;
+        if (entryDate < dateFrom) return false;
       }
       if (dateTo) {
-        const to = new Date(dateTo);
-        to.setHours(23, 59, 59, 999);
-        if (new Date(entry.created_at) > to) return false;
+        if (entryDate > dateTo) return false;
       }
       if (filterDesc.trim()) {
+        const query = filterDesc.toLowerCase();
         const entryDescs = (entry.descriptions || []).map((d) => d.toLowerCase());
-        if (!entryDescs.some((d) => d.includes(filterDesc.toLowerCase()))) return false;
+        const matchesDesc = entryDescs.some((d) => d.includes(query));
+        const matchesAmount = entry.amount.toString().includes(query);
+        if (!matchesDesc && !matchesAmount) return false;
       }
       return true;
     });
@@ -414,12 +416,12 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
         {searchOpen && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4 space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">Filter by Description</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">Search</label>
               <input
                 type="text"
                 value={filterDesc}
                 onChange={(e) => setFilterDesc(e.target.value)}
-                placeholder="Search descriptions..."
+                placeholder="Search descriptions or amounts..."
                 className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />
               {allDescriptions.length > 0 && (
