@@ -14,7 +14,26 @@ interface CardDetailClientProps {
 }
 
 export default function CardDetailClient({ card: initialCard }: CardDetailClientProps) {
-  const [card, setCard] = useState<LogCardWithEntries>(initialCard);
+  const normalizeDescs = (d: unknown): string[] => {
+    if (Array.isArray(d)) return d.filter(Boolean);
+    if (typeof d === "string" && d.length > 0) {
+      try {
+        const parsed = JSON.parse(d);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean);
+      } catch {
+        return d.split(/[{},]/).map((s: string) => s.trim()).filter(Boolean);
+      }
+    }
+    return [];
+  };
+
+  const [card, setCard] = useState<LogCardWithEntries>(() => ({
+    ...initialCard,
+    log_entries: initialCard.log_entries.map((e) => ({
+      ...e,
+      descriptions: normalizeDescs(e.descriptions),
+    })),
+  }));
   const [amount, setAmount] = useState("");
   const [descInput, setDescInput] = useState("");
   const [descriptions, setDescriptions] = useState<string[]>([]);
@@ -123,9 +142,10 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
       .single();
 
     if (data) {
+      const normalized = { ...data, descriptions: normalizeDescs(data.descriptions) } as LogEntry;
       setCard((prev) => ({
         ...prev,
-        log_entries: [data as LogEntry, ...prev.log_entries],
+        log_entries: [normalized, ...prev.log_entries],
       }));
       setAmount("");
       setDescriptions([]);

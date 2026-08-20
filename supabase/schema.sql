@@ -67,6 +67,7 @@ CREATE POLICY "Users can delete own cards" ON public.log_cards FOR DELETE USING 
 
 CREATE POLICY "Users can view own entries" ON public.log_entries FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can create own entries" ON public.log_entries FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own entries" ON public.log_entries FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own entries" ON public.log_entries FOR DELETE USING (auth.uid() = user_id);
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
