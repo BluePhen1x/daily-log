@@ -6,14 +6,13 @@ import * as XLSX from "xlsx";
 
 interface ExcelImportProps {
   symbol: string;
-  onEntriesImported: (entries: { amount: number; description: string; source_date: string }[]) => Promise<void>;
+  onEntriesImported: (entries: { amount: number; descriptions: string[]; source_date: string }[]) => Promise<void>;
 }
 
-interface ParsedEntry {
-  amount: number;
-  description: string;
-  source_date: string;
-  selected: boolean;
+interface ColMapping {
+  date: number;
+  descs: number[];
+  price: number;
 }
 
 export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportProps) {
@@ -21,8 +20,8 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
   const [step, setStep] = useState<"upload" | "map" | "review">("upload");
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<string[][]>([]);
-  const [colMap, setColMap] = useState<{ date: number; desc: number; price: number }>({ date: -1, desc: -1, price: -1 });
-  const [entries, setEntries] = useState<ParsedEntry[]>([]);
+  const [colMap, setColMap] = useState<ColMapping>({ date: -1, descs: [], price: -1 });
+  const [entries, setEntries] = useState<{ amount: number; descriptions: string[]; source_date: string; selected: boolean }[]>([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -34,33 +33,42 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const json = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
 
-    if (json.length < 2) {
-      setLoading(false);
-      return;
-    }
+    if (json.length < 2) { setLoading(false); return; }
 
     const hdrs = json[0].map((h) => String(h || "").trim());
     const dataRows = json.slice(1).map((r) => r.map((c) => String(c || "").trim()));
 
     setHeaders(hdrs);
     setRows(dataRows);
-    setColMap({ date: -1, desc: -1, price: -1 });
+    setColMap({ date: -1, descs: [], price: -1 });
     setStep("map");
     setLoading(false);
   };
 
   const guessColumns = () => {
     const dateIdx = headers.findIndex((h) => /date|day|time/i.test(h));
-    const descIdx = headers.findIndex((h) => /desc|note|item|name|particular/i.test(h));
     const priceIdx = headers.findIndex((h) => /price|amount|cost|pay|total|sum|rs|rupee|\$/i.test(h));
-    setColMap({ date: dateIdx, desc: descIdx, price: priceIdx });
+    const descIdxs = headers
+      .map((h, i) => (/desc|note|item|name|particular|memo|remark/i.test(h) ? i : -1))
+      .filter((i) => i !== -1);
+    if (descIdxs.length === 0) {
+      const nonSpecial = headers
+        .map((h, i) => (i !== dateIdx && i !== priceIdx && h ? i : -1))
+        .filter((i) => i !== -1);
+      if (nonSpecial.length > 0) descIdxs.push(...nonSpecial.slice(0, 3));
+    }
+    setColMap({ date: dateIdx, descs: descIdxs, price: priceIdx });
+  };
+
+  const toggleDescCol = (index: number) => {
+    setColMap((prev) => ({
+      ...prev,
+      descs: prev.descs.includes(index) ? prev.descs.filter((i) => i !== index) : [...prev.descs, index],
+    }));
   };
 
   const handleMapConfirm = () => {
-    if (colMap.price === -1) {
-      alert("Please select a Price/Amount column.");
-      return;
-    }
+    if (colMap.price === -1) { alert("Please select a Price/Amount column."); return; }
 
     const parsed = rows
       .map((row) => {
@@ -68,12 +76,14 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
         const amount = parseFloat(priceText);
         if (isNaN(amount) || amount <= 0) return null;
 
-        const description = colMap.desc !== -1 ? row[colMap.desc] || "" : "";
+        const descs = colMap.descs
+          .map((ci) => row[ci]?.trim())
+          .filter(Boolean);
         const source_date = colMap.date !== -1 ? row[colMap.date] || "" : "";
 
-        return { amount, description, source_date, selected: true };
+        return { amount, descriptions: descs, source_date, selected: true };
       })
-      .filter(Boolean) as ParsedEntry[];
+      .filter(Boolean) as { amount: number; descriptions: string[]; source_date: string; selected: boolean }[];
 
     setEntries(parsed);
     setStep("review");
@@ -83,7 +93,7 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
     setEntries((prev) => prev.map((e, i) => (i === index ? { ...e, selected: !e.selected } : e)));
   };
 
-  const updateEntry = (index: number, field: "amount" | "description" | "source_date", value: string) => {
+  const updateEntry = (index: number, field: "amount" | "source_date", value: string) => {
     setEntries((prev) =>
       prev.map((e, i) => {
         if (i !== index) return e;
@@ -96,7 +106,7 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
   const handleConfirm = async () => {
     const selected = entries
       .filter((e) => e.selected && e.amount > 0)
-      .map(({ amount, description, source_date }) => ({ amount, description, source_date }));
+      .map(({ amount, descriptions, source_date }) => ({ amount, descriptions, source_date }));
     setImporting(true);
     await onEntriesImported(selected);
     setImporting(false);
@@ -108,16 +118,13 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
     setStep("upload");
     setHeaders([]);
     setRows([]);
-    setColMap({ date: -1, desc: -1, price: -1 });
+    setColMap({ date: -1, descs: [], price: -1 });
     setEntries([]);
   };
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 text-sm px-3 py-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-      >
+      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 text-sm px-3 py-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
         <FileSpreadsheet className="w-4 h-4" />
         Import
       </button>
@@ -135,69 +142,55 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
             <div className="p-5">
               {step === "upload" && (
                 <>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept=".xlsx,.xls,.csv"
-                    onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-                    className="hidden"
-                  />
-                  <button
-                    onClick={() => fileRef.current?.click()}
-                    disabled={loading}
-                    className="w-full border-2 border-dashed border-gray-300 rounded-2xl py-16 text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-colors flex flex-col items-center gap-3"
-                  >
-                    {loading ? (
-                      <Loader2 className="w-10 h-10 animate-spin" />
-                    ) : (
-                      <FileSpreadsheet className="w-10 h-10" />
-                    )}
-                    <span className="text-sm">
-                      {loading ? "Reading file..." : "Upload Excel or CSV file"}
-                    </span>
+                  <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} className="hidden" />
+                  <button onClick={() => fileRef.current?.click()} disabled={loading} className="w-full border-2 border-dashed border-gray-300 rounded-2xl py-16 text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-colors flex flex-col items-center gap-3">
+                    {loading ? <Loader2 className="w-10 h-10 animate-spin" /> : <FileSpreadsheet className="w-10 h-10" />}
+                    <span className="text-sm">{loading ? "Reading file..." : "Upload Excel or CSV file"}</span>
                   </button>
-                  <p className="text-xs text-gray-400 text-center mt-3">
-                    Paste your notes into Gemini, export as Excel/CSV, then upload here.
-                  </p>
+                  <p className="text-xs text-gray-400 text-center mt-3">Paste your notes into Gemini, export as Excel/CSV, then upload here.</p>
                 </>
               )}
 
               {step === "map" && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-500">
-                      {rows.length} rows found. Map your columns below.
-                    </p>
-                    <button
-                      onClick={guessColumns}
-                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      Auto-detect
-                    </button>
+                    <p className="text-sm text-gray-500">{rows.length} rows found. Map your columns below.</p>
+                    <button onClick={guessColumns} className="text-xs text-blue-600 hover:text-blue-700 font-medium">Auto-detect</button>
                   </div>
 
                   <div className="space-y-3">
-                    {(["date", "desc", "price"] as const).map((field) => (
-                      <div key={field} className="flex items-center gap-3">
-                        <span className={`text-xs font-medium w-20 py-1.5 px-2 rounded-lg text-center ${
-                          field === "date" ? "bg-purple-50 text-purple-700" :
-                          field === "desc" ? "bg-blue-50 text-blue-700" :
-                          "bg-green-50 text-green-700"
-                        }`}>
-                          {field === "desc" ? "Description" : field === "price" ? "Price *" : "Date"}
-                        </span>
-                        <select
-                          value={colMap[field]}
-                          onChange={(e) => setColMap((prev) => ({ ...prev, [field]: parseInt(e.target.value) }))}
-                          className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value={-1}>-- Not mapped --</option>
-                          {headers.map((h, i) => (
-                            <option key={i} value={i}>{h || `Column ${i + 1}`}</option>
-                          ))}
-                        </select>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-medium w-20 py-1.5 px-2 rounded-lg text-center bg-purple-50 text-purple-700">Date</span>
+                      <select value={colMap.date} onChange={(e) => setColMap((prev) => ({ ...prev, date: parseInt(e.target.value) }))} className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value={-1}>-- Not mapped --</option>
+                        {headers.map((h, i) => (<option key={i} value={i}>{h || `Column ${i + 1}`}</option>))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <span className="text-xs font-medium w-20 py-1.5 px-2 rounded-lg text-center bg-blue-50 text-blue-700 mt-0.5">Descriptions</span>
+                      <div className="flex-1 flex flex-wrap gap-1.5">
+                        {headers.map((h, i) => (
+                          <button
+                            key={i}
+                            onClick={() => toggleDescCol(i)}
+                            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                              colMap.descs.includes(i) ? "bg-blue-100 border-blue-300 text-blue-700" : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
+                            }`}
+                          >
+                            {h || `Col ${i + 1}`}
+                          </button>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-medium w-20 py-1.5 px-2 rounded-lg text-center bg-green-50 text-green-700">Price *</span>
+                      <select value={colMap.price} onChange={(e) => setColMap((prev) => ({ ...prev, price: parseInt(e.target.value) }))} className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value={-1}>-- Not mapped --</option>
+                        {headers.map((h, i) => (<option key={i} value={i}>{h || `Column ${i + 1}`}</option>))}
+                      </select>
+                    </div>
                   </div>
 
                   <div className="overflow-x-auto mt-4">
@@ -205,9 +198,7 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
                       <thead>
                         <tr className="bg-gray-50">
                           {headers.map((h, i) => (
-                            <th key={i} className="px-3 py-2 border-b border-gray-200 font-medium text-gray-600">
-                              {h || `Col ${i + 1}`}
-                            </th>
+                            <th key={i} className="px-3 py-2 border-b border-gray-200 font-medium text-gray-600">{h || `Col ${i + 1}`}</th>
                           ))}
                         </tr>
                       </thead>
@@ -215,9 +206,7 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
                         {rows.slice(0, 5).map((row, ri) => (
                           <tr key={ri} className="border-b border-gray-100 last:border-0">
                             {row.map((cell, ci) => (
-                              <td key={ci} className="px-3 py-2 text-gray-500 whitespace-nowrap">
-                                {cell || "-"}
-                              </td>
+                              <td key={ci} className="px-3 py-2 text-gray-500 whitespace-nowrap">{cell || "-"}</td>
                             ))}
                           </tr>
                         ))}
@@ -227,12 +216,8 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
                   {rows.length > 5 && <p className="text-xs text-gray-400 text-center">Showing 5 of {rows.length} rows</p>}
 
                   <div className="flex gap-3 pt-2">
-                    <button onClick={reset} className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors text-sm">
-                      Cancel
-                    </button>
-                    <button onClick={handleMapConfirm} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors text-sm">
-                      Continue
-                    </button>
+                    <button onClick={reset} className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors text-sm">Cancel</button>
+                    <button onClick={handleMapConfirm} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors text-sm">Continue</button>
                   </div>
                 </div>
               )}
@@ -242,13 +227,11 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
                   {entries.length === 0 ? (
                     <div className="text-center py-8">
                       <p className="text-gray-400 text-sm">No valid entries found. Check your column mapping.</p>
-                      <button onClick={() => setStep("map")} className="mt-4 px-6 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors text-sm">
-                        Back
-                      </button>
+                      <button onClick={() => setStep("map")} className="mt-4 px-6 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors text-sm">Back</button>
                     </div>
                   ) : (
                     <>
-                      <p className="text-sm text-gray-500">Found {entries.length} entries. Review and edit before importing.</p>
+                      <p className="text-sm text-gray-500">Found {entries.length} entries. Review before importing.</p>
                       <div className="space-y-2 max-h-72 overflow-y-auto">
                         {entries.map((entry, i) => (
                           <div key={i} className={`p-3 rounded-xl border transition-colors ${entry.selected ? "border-blue-200 bg-blue-50/50" : "border-gray-100 bg-gray-50 opacity-50"}`}>
@@ -256,7 +239,11 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
                               <input type="checkbox" checked={entry.selected} onChange={() => toggleEntry(i)} className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                               <span className="text-sm font-medium text-gray-500 whitespace-nowrap">{symbol}</span>
                               <input type="number" value={entry.amount || ""} onChange={(e) => updateEntry(i, "amount", e.target.value)} className="w-24 px-2 py-1 text-sm border border-gray-200 rounded-lg bg-white" step="0.01" />
-                              <input type="text" value={entry.description} onChange={(e) => updateEntry(i, "description", e.target.value)} placeholder="Note" className="flex-1 px-2 py-1 text-sm border border-gray-200 rounded-lg bg-white min-w-0" />
+                              <div className="flex-1 flex flex-wrap gap-1 min-w-0">
+                                {entry.descriptions.map((d) => (
+                                  <span key={d} className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full">{d}</span>
+                                ))}
+                              </div>
                             </div>
                             {entry.source_date && (
                               <input type="text" value={entry.source_date} onChange={(e) => updateEntry(i, "source_date", e.target.value)} placeholder="Date" className="mt-2 ml-7 w-[calc(100%-1.75rem)] px-2 py-1 text-xs border border-gray-200 rounded-lg bg-white text-gray-500" />
@@ -266,22 +253,8 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setStep("map")} className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors text-sm">Back</button>
-                        <button
-                          onClick={handleConfirm}
-                          disabled={importing}
-                          className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
-                        >
-                          {importing ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Adding...
-                            </>
-                          ) : (
-                            <>
-                              <Check className="w-4 h-4" />
-                              Add {entries.filter((e) => e.selected).length} Entries
-                            </>
-                          )}
+                        <button onClick={handleConfirm} disabled={importing} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
+                          {importing ? (<><Loader2 className="w-4 h-4 animate-spin" />Adding...</>) : (<><Check className="w-4 h-4" />Add {entries.filter((e) => e.selected).length} Entries</>)}
                         </button>
                       </div>
                     </>

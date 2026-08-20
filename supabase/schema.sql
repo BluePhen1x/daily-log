@@ -47,7 +47,7 @@ CREATE TABLE public.log_entries (
   card_id UUID REFERENCES public.log_cards(id) ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   amount DECIMAL(12, 2) NOT NULL,
-  description TEXT,
+  descriptions TEXT[] DEFAULT '{}',
   source_date TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
