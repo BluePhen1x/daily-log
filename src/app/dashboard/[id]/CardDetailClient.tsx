@@ -333,7 +333,7 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
             </p>
           </div>
           <span className="text-sm font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">{card.currency}</span>
-          <button onClick={handleDeleteCard} className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors" aria-label="Delete card">
+          <button onClick={handleDeleteCard} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors" aria-label="Delete card">
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
@@ -587,11 +587,11 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
 
                   <div className="flex items-center gap-1 ml-3 flex-shrink-0">
                     {editingEntryId !== entry.id && (
-                      <button onClick={() => startEditing(entry)} className="p-2 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" aria-label="Edit descriptions">
+                      <button onClick={() => startEditing(entry)} className="p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" aria-label="Edit descriptions">
                         <Plus className="w-4 h-4" />
                       </button>
                     )}
-                    <button onClick={() => handleDeleteEntry(entry.id)} className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" aria-label="Delete entry">
+                    <button onClick={() => handleDeleteEntry(entry.id)} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" aria-label="Delete entry">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
