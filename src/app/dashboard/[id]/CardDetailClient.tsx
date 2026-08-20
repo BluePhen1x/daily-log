@@ -106,7 +106,7 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
     if (!existingProfile) {
       await supabase.from("profiles").insert({
         id: card.user_id,
-        email: user?.email || "",
+        email: "",
         full_name: null,
       });
     }
