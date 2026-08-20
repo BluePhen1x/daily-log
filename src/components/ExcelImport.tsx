@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 
 interface ExcelImportProps {
   symbol: string;
-  onEntriesImported: (entries: { amount: number; description: string; source_date: string }[]) => void;
+  onEntriesImported: (entries: { amount: number; description: string; source_date: string }[]) => Promise<void>;
 }
 
 interface ParsedEntry {
@@ -24,6 +24,7 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
   const [colMap, setColMap] = useState<{ date: number; desc: number; price: number }>({ date: -1, desc: -1, price: -1 });
   const [entries, setEntries] = useState<ParsedEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
@@ -92,11 +93,13 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
     );
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const selected = entries
       .filter((e) => e.selected && e.amount > 0)
       .map(({ amount, description, source_date }) => ({ amount, description, source_date }));
-    onEntriesImported(selected);
+    setImporting(true);
+    await onEntriesImported(selected);
+    setImporting(false);
     reset();
   };
 
@@ -263,9 +266,22 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setStep("map")} className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors text-sm">Back</button>
-                        <button onClick={handleConfirm} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
-                          <Check className="w-4 h-4" />
-                          Add {entries.filter((e) => e.selected).length} Entries
+                        <button
+                          onClick={handleConfirm}
+                          disabled={importing}
+                          className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+                        >
+                          {importing ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Adding...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="w-4 h-4" />
+                              Add {entries.filter((e) => e.selected).length} Entries
+                            </>
+                          )}
                         </button>
                       </div>
                     </>

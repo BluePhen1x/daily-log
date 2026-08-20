@@ -158,7 +158,27 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
       .insert(newEntries)
       .select();
 
-    if (!error && data) {
+    if (error) {
+      const fallback = entries.map((e) => ({
+        card_id: card.id,
+        user_id: card.user_id,
+        amount: e.amount,
+        description: e.description || null,
+      }));
+      const result = await supabase
+        .from("log_entries")
+        .insert(fallback)
+        .select();
+      if (result.data) {
+        setCard((prev) => ({
+          ...prev,
+          log_entries: [...(result.data as LogEntry[]), ...prev.log_entries],
+        }));
+      }
+      return;
+    }
+
+    if (data) {
       setCard((prev) => ({
         ...prev,
         log_entries: [...(data as LogEntry[]), ...prev.log_entries],
