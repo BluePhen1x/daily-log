@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -15,13 +15,33 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
   const [card, setCard] = useState<LogCardWithEntries>(initialCard);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const descRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
 
   const symbol = card.currency === "DHS" ? "DHS" : card.currency === "Rupees" ? "₹" : "$";
   const total = card.log_entries.reduce((sum, e) => sum + e.amount, 0);
+
+  const savedDescriptions = useMemo(() => {
+    const seen = new Set<string>();
+    return card.log_entries
+      .filter((e) => {
+        if (!e.description || seen.has(e.description)) return false;
+        seen.add(e.description);
+        return true;
+      })
+      .map((e) => e.description as string);
+  }, [card.log_entries]);
+
+  const filteredDescriptions = useMemo(() => {
+    if (!description.trim()) return savedDescriptions;
+    return savedDescriptions.filter((d) =>
+      d.toLowerCase().includes(description.toLowerCase())
+    );
+  }, [description, savedDescriptions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +82,7 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
       }));
       setAmount("");
       setDescription("");
+      setShowSuggestions(false);
       inputRef.current?.focus();
     }
     setLoading(false);
@@ -163,13 +184,39 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
                 {loading ? "..." : "Add"}
               </button>
             </div>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add a note (optional)"
-              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
+            <div className="relative">
+              <input
+                ref={descRef}
+                type="text"
+                value={description}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                placeholder="Add a note (optional)"
+                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
+              {showSuggestions && filteredDescriptions.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                  {filteredDescriptions.map((desc) => (
+                    <button
+                      key={desc}
+                      type="button"
+                      onMouseDown={() => {
+                        setDescription(desc);
+                        setShowSuggestions(false);
+                        inputRef.current?.focus();
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                    >
+                      {desc}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </form>
         </div>
 
