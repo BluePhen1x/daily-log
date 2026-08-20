@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { LogCardWithEntries, LogEntry } from "@/lib/types";
 import Link from "next/link";
+import PhotoScanner from "@/components/PhotoScanner";
 
 interface CardDetailClientProps {
   card: LogCardWithEntries;
@@ -125,6 +126,41 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
       setCard((prev) => ({
         ...prev,
         log_entries: prev.log_entries.filter((e) => e.id !== entryId),
+      }));
+    }
+  };
+
+  const handleEntriesScanned = async (entries: { amount: number; description: string }[]) => {
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", card.user_id)
+      .single();
+
+    if (!existingProfile) {
+      await supabase.from("profiles").insert({
+        id: card.user_id,
+        email: "",
+        full_name: null,
+      });
+    }
+
+    const newEntries = entries.map((e) => ({
+      card_id: card.id,
+      user_id: card.user_id,
+      amount: e.amount,
+      description: e.description || null,
+    }));
+
+    const { data, error } = await supabase
+      .from("log_entries")
+      .insert(newEntries)
+      .select();
+
+    if (!error && data) {
+      setCard((prev) => ({
+        ...prev,
+        log_entries: [...(data as LogEntry[]), ...prev.log_entries],
       }));
     }
   };
@@ -252,17 +288,20 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
           <h2 className="text-sm font-medium text-gray-500">
             {hasActiveFilters ? `${filteredEntries.length} results` : "History"}
           </h2>
-          <button
-            onClick={() => setSearchOpen(!searchOpen)}
-            className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors ${
-              searchOpen || hasActiveFilters
-                ? "bg-blue-50 text-blue-600"
-                : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            <Search className="w-4 h-4" />
-            Search
-          </button>
+          <div className="flex items-center gap-1">
+            <PhotoScanner symbol={symbol} onEntriesScanned={handleEntriesScanned} />
+            <button
+              onClick={() => setSearchOpen(!searchOpen)}
+              className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors ${
+                searchOpen || hasActiveFilters
+                  ? "bg-blue-50 text-blue-600"
+                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              <Search className="w-4 h-4" />
+              Search
+            </button>
+          </div>
         </div>
 
         {searchOpen && (
