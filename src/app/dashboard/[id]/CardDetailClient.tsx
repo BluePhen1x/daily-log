@@ -47,6 +47,8 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
   const [editingDescs, setEditingDescs] = useState<string[]>([]);
   const [editingInput, setEditingInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const dateFromRef = useRef<HTMLInputElement>(null);
+  const dateToRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
 
@@ -476,11 +478,33 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">From</label>
-                <input type="text" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="DD/MM/YYYY" maxLength={10} className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                <div className="relative">
+                  <input type="text" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="DD/MM/YYYY" maxLength={10} className="w-full px-4 py-2.5 pr-10 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                  <input ref={dateFromRef} type="date" className="hidden" onChange={(e) => {
+                    if (e.target.value) {
+                      const [y, m, d] = e.target.value.split("-");
+                      setDateFrom(`${d}/${m}/${y}`);
+                    }
+                  }} />
+                  <button type="button" onClick={() => dateFromRef.current?.showPicker()} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-blue-500 transition-colors">
+                    <Calendar className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">To</label>
-                <input type="text" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="DD/MM/YYYY" maxLength={10} className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                <div className="relative">
+                  <input type="text" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="DD/MM/YYYY" maxLength={10} className="w-full px-4 py-2.5 pr-10 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                  <input ref={dateToRef} type="date" className="hidden" onChange={(e) => {
+                    if (e.target.value) {
+                      const [y, m, d] = e.target.value.split("-");
+                      setDateTo(`${d}/${m}/${y}`);
+                    }
+                  }} />
+                  <button type="button" onClick={() => dateToRef.current?.showPicker()} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-blue-500 transition-colors">
+                    <Calendar className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
             {hasActiveFilters && (
