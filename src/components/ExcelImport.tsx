@@ -79,7 +79,12 @@ export default function ExcelImport({ symbol, onEntriesImported }: ExcelImportPr
         const descs = colMap.descs
           .map((ci) => row[ci]?.trim())
           .filter(Boolean);
-        const source_date = colMap.date !== -1 ? row[colMap.date] || "" : "";
+        const rawDate = colMap.date !== -1 ? row[colMap.date] || "" : "";
+        let source_date = rawDate;
+        if (rawDate.includes("/")) {
+          const parts = rawDate.split("/");
+          if (parts.length === 3 && parts[2].length === 4) source_date = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
 
         return { amount, descriptions: descs, source_date, selected: true };
       })

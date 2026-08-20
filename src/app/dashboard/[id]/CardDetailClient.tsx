@@ -92,13 +92,13 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
   const filteredEntries = useMemo(() => {
     return card.log_entries.filter((entry) => {
       const rawDate = entry.source_date || entry.created_at;
-      const entryDate = rawDate.slice(0, 10);
-      if (dateFrom) {
-        if (entryDate < dateFrom) return false;
+      let entryDate = rawDate.slice(0, 10);
+      if (entryDate.includes("/")) {
+        const [dd, mm, yyyy] = entryDate.split("/");
+        entryDate = `${yyyy}-${mm}-${dd}`;
       }
-      if (dateTo) {
-        if (entryDate > dateTo) return false;
-      }
+      if (dateFrom && entryDate < dateFrom) return false;
+      if (dateTo && entryDate > dateTo) return false;
       if (filterDescs.length > 0) {
         const entryDescs = (entry.descriptions || []).map((d) => d.toLowerCase());
         if (!filterDescs.some((f) => entryDescs.includes(f.toLowerCase()))) return false;
@@ -552,7 +552,11 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
 
                     <div className="flex items-center gap-2 mt-1">
                       {entry.source_date && (
-                        <span className="text-xs text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded">{entry.source_date}</span>
+                        <span className="text-xs text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded">
+                          {entry.source_date.includes("-")
+                            ? (() => { const [y, m, d] = entry.source_date.split("-"); return `${d}/${m}/${y}`; })()
+                            : entry.source_date}
+                        </span>
                       )}
                       <p className="text-xs text-gray-400">{formatDate(entry.created_at)}</p>
                     </div>
