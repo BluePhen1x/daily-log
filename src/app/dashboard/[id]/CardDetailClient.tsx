@@ -172,6 +172,19 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
   const handleDeleteEntry = async (entryId: string) => {
     if (!confirm("Delete this entry?")) return;
 
+    const entry = card.log_entries.find((e) => e.id === entryId);
+    if (!entry) return;
+
+    await supabase.from("deleted_log_entries").insert({
+      original_id: entry.id,
+      card_id: entry.card_id,
+      user_id: entry.user_id,
+      amount: entry.amount,
+      descriptions: entry.descriptions || [],
+      source_date: entry.source_date || null,
+      created_at: entry.created_at,
+    });
+
     const { error } = await supabase
       .from("log_entries")
       .delete()
@@ -187,6 +200,19 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
 
   const handleDeleteCard = async () => {
     if (!confirm(`Delete "${card.card_name}" and all its entries?`)) return;
+
+    const archivePromises = card.log_entries.map((entry) =>
+      supabase.from("deleted_log_entries").insert({
+        original_id: entry.id,
+        card_id: entry.card_id,
+        user_id: entry.user_id,
+        amount: entry.amount,
+        descriptions: entry.descriptions || [],
+        source_date: entry.source_date || null,
+        created_at: entry.created_at,
+      })
+    );
+    await Promise.all(archivePromises);
 
     const { error } = await supabase
       .from("log_cards")
