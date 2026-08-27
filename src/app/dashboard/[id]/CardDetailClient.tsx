@@ -43,10 +43,18 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
   const [dateTo, setDateTo] = useState("");
   const [filterDescs, setFilterDescs] = useState<string[]>([]);
   const [filterDescInput, setFilterDescInput] = useState("");
+  const [sourceDate, setSourceDate] = useState(() => {
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, "0");
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const yyyy = String(now.getFullYear());
+    return `${dd}/${mm}/${yyyy}`;
+  });
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editingDescs, setEditingDescs] = useState<string[]>([]);
   const [editingInput, setEditingInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const sourceDateRef = useRef<HTMLInputElement>(null);
   const dateFromRef = useRef<HTMLInputElement>(null);
   const dateToRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -151,6 +159,7 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
         user_id: card.user_id,
         amount: parsedAmount,
         descriptions: descriptions.length > 0 ? descriptions : [],
+        source_date: sourceDate || null,
       })
       .select()
       .single();
@@ -425,6 +434,16 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
                   ))}
                 </div>
               )}
+              <div className="relative">
+                <input type="text" value={sourceDate} onChange={(e) => setSourceDate(e.target.value)} placeholder="DD/MM/YYYY" maxLength={10} className="w-full px-4 py-2.5 pr-10 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                <Calendar className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                <input ref={sourceDateRef} type="date" className="absolute right-0 top-0 w-9 h-full opacity-0 cursor-pointer" onChange={(e) => {
+                  if (e.target.value) {
+                    const [y, m, d] = e.target.value.split("-");
+                    setSourceDate(`${d}/${m}/${y}`);
+                  }
+                }} />
+              </div>
             </div>
           </form>
         </div>
