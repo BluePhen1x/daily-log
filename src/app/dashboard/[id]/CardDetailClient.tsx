@@ -14,17 +14,14 @@ interface CardDetailClientProps {
 }
 
 export default function CardDetailClient({ card: initialCard }: CardDetailClientProps) {
-  const normalizeDescs = (d: unknown): string[] => {
-    if (Array.isArray(d)) return d.filter(Boolean);
+  const normalizeDescs = (d: unknown, fallback?: string[]): string[] => {
+    if (Array.isArray(d) && d.length > 0) return d.filter(Boolean);
     if (typeof d === "string" && d.length > 0) {
-      try {
-        const parsed = JSON.parse(d);
-        if (Array.isArray(parsed)) return parsed.filter(Boolean);
-      } catch {
-        return d.split(/[{},]/).map((s: string) => s.trim()).filter(Boolean);
-      }
+      const cleaned = d.replace(/^\{|\}$/g, "");
+      if (cleaned.length === 0) return fallback || [];
+      return cleaned.split(",").map((s: string) => s.trim().replace(/^"|"$/g, "")).filter(Boolean);
     }
-    return [];
+    return fallback || [];
   };
 
   const [card, setCard] = useState<LogCardWithEntries>(() => ({
@@ -165,7 +162,8 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
       .single();
 
     if (data) {
-      const normalized = { ...data, descriptions: normalizeDescs(data.descriptions) } as LogEntry;
+      const sentDescs = descriptions.length > 0 ? descriptions : [];
+      const normalized = { ...data, descriptions: normalizeDescs(data.descriptions, sentDescs) } as LogEntry;
       setCard((prev) => ({
         ...prev,
         log_entries: [normalized, ...prev.log_entries],
@@ -310,18 +308,20 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
         .insert(fallback)
         .select();
       if (result.data) {
+        const normalized = result.data.map((e: LogEntry) => ({ ...e, descriptions: normalizeDescs(e.descriptions) }));
         setCard((prev) => ({
           ...prev,
-          log_entries: [...(result.data as LogEntry[]), ...prev.log_entries],
+          log_entries: [...normalized, ...prev.log_entries],
         }));
       }
       return;
     }
 
     if (data) {
+      const normalized = data.map((e: LogEntry) => ({ ...e, descriptions: normalizeDescs(e.descriptions) }));
       setCard((prev) => ({
         ...prev,
-        log_entries: [...(data as LogEntry[]), ...prev.log_entries],
+        log_entries: [...normalized, ...prev.log_entries],
       }));
     }
   };
