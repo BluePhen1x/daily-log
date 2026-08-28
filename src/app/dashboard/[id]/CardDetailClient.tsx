@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useMemo } from "react";
-import { ArrowLeft, Trash2, Search, X, Calendar, Download, Plus } from "lucide-react";
+import { ArrowLeft, Trash2, Search, X, Calendar, Download, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { LogCardWithEntries, LogEntry } from "@/lib/types";
@@ -48,7 +48,9 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
     return `${dd}/${mm}/${yyyy}`;
   });
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editingAmount, setEditingAmount] = useState("");
   const [editingDescs, setEditingDescs] = useState<string[]>([]);
+  const [editingSourceDate, setEditingSourceDate] = useState("");
   const [editingInput, setEditingInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const sourceDateRef = useRef<HTMLInputElement>(null);
@@ -234,7 +236,9 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
 
   const startEditing = (entry: LogEntry) => {
     setEditingEntryId(entry.id);
+    setEditingAmount(entry.amount.toString());
     setEditingDescs(entry.descriptions || []);
+    setEditingSourceDate(entry.source_date || "");
     setEditingInput("");
   };
 
@@ -251,21 +255,32 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
   };
 
   const saveEditing = async (entryId: string) => {
+    const parsedAmount = parseFloat(editingAmount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) return;
+
     const { error } = await supabase
       .from("log_entries")
-      .update({ descriptions: editingDescs })
+      .update({
+        amount: parsedAmount,
+        descriptions: editingDescs,
+        source_date: editingSourceDate || null,
+      })
       .eq("id", entryId);
 
     if (!error) {
       setCard((prev) => ({
         ...prev,
         log_entries: prev.log_entries.map((e) =>
-          e.id === entryId ? { ...e, descriptions: editingDescs } : e
+          e.id === entryId
+            ? { ...e, amount: parsedAmount, descriptions: editingDescs, source_date: editingSourceDate || null }
+            : e
         ),
       }));
     }
     setEditingEntryId(null);
     setEditingDescs([]);
+    setEditingAmount("");
+    setEditingSourceDate("");
   };
 
   const handleEntriesScanned = async (entries: { amount: number; descriptions: string[]; source_date?: string }[]) => {
@@ -582,27 +597,49 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
 
                     {editingEntryId === entry.id ? (
                       <div className="mt-2 space-y-2">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={editingInput}
-                            onChange={(e) => setEditingInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") { e.preventDefault(); addEditingDesc(editingInput); }
-                              if (e.key === "Escape") setEditingEntryId(null);
-                            }}
-                            placeholder="Add tag (Enter)"
-                            autoFocus
-                            className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {editingDescs.map((d) => (
-                            <span key={d} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full">
-                              {d}
-                              <button type="button" onClick={() => removeEditingDesc(d)} className="hover:text-blue-900"><X className="w-3 h-3" /></button>
-                            </span>
-                          ))}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-gray-500 w-16">Price</span>
+                            <div className="relative flex-1">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">{symbol}</span>
+                              <input
+                                type="number"
+                                value={editingAmount}
+                                onChange={(e) => setEditingAmount(e.target.value)}
+                                step="0.01"
+                                min="0"
+                                className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <span className="text-xs font-medium text-gray-500">Descriptions</span>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={editingInput}
+                                onChange={(e) => setEditingInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") { e.preventDefault(); addEditingDesc(editingInput); }
+                                }}
+                                placeholder="Add tag (Enter)"
+                                autoFocus
+                                className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {editingDescs.map((d) => (
+                                <span key={d} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full">
+                                  {d}
+                                  <button type="button" onClick={() => removeEditingDesc(d)} className="hover:text-blue-900"><X className="w-3 h-3" /></button>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-xs font-medium text-gray-500">Date</span>
+                            <input type="text" value={editingSourceDate} onChange={(e) => setEditingSourceDate(e.target.value)} placeholder="DD/MM/YYYY" maxLength={10} className="w-full px-3 py-1.5 mt-1 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           <button onClick={() => saveEditing(entry.id)} className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save</button>
@@ -635,8 +672,8 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
 
                   <div className="flex items-center gap-1 ml-3 flex-shrink-0">
                     {editingEntryId !== entry.id && (
-                      <button onClick={() => startEditing(entry)} className="p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" aria-label="Edit descriptions">
-                        <Plus className="w-4 h-4" />
+                      <button onClick={() => startEditing(entry)} className="p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" aria-label="Edit entry">
+                        <Pencil className="w-4 h-4" />
                       </button>
                     )}
                     <button onClick={() => handleDeleteEntry(entry.id)} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" aria-label="Delete entry">
