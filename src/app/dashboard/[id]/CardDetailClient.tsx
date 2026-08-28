@@ -96,6 +96,12 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
     }
   };
 
+  const toYYYYMMDD = (ddmmyyyy: string) => {
+    const parts = ddmmyyyy.split("/");
+    if (parts.length !== 3) return ddmmyyyy;
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  };
+
   const filteredEntries = useMemo(() => {
     return card.log_entries.filter((entry) => {
       const rawDate = entry.source_date || entry.created_at;
@@ -104,11 +110,6 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
         const [dd, mm, yyyy] = entryDate.split("/");
         entryDate = `${yyyy}-${mm}-${dd}`;
       }
-      const toYYYYMMDD = (ddmmyyyy: string) => {
-        const parts = ddmmyyyy.split("/");
-        if (parts.length !== 3) return ddmmyyyy;
-        return `${parts[2]}-${parts[1]}-${parts[0]}`;
-      };
       if (dateFrom && entryDate < toYYYYMMDD(dateFrom)) return false;
       if (dateTo && entryDate > toYYYYMMDD(dateTo)) return false;
       if (filterDescs.length > 0) {
@@ -300,7 +301,7 @@ export default function CardDetailClient({ card: initialCard }: CardDetailClient
         card_id: card.id,
         user_id: card.user_id,
         amount: e.amount,
-        descriptions: [],
+        descriptions: e.descriptions || [],
         source_date: e.source_date || null,
       }));
       const result = await supabase
